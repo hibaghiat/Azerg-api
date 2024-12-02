@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  app:
+    container_name: app
+    build: ../
+    ports:
+      - "3000:3000"
+    env_file:
+      - ../env/.env
+    depends_on:
+      - mongodb
+      - neodb
+    volumes:
+      - ../app:/app/app
+      - ../app/templates/:/app/templates
+
+  mongodb:
+    image: mongo
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    env_file:
+      - ../env/.env
+    volumes:
+      - ../mongodata:/data/db
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+  neodb:
+    image: neo4j:latest
+    container_name: neodb
+    ports:
+      - 7474:7474
+      - 7473:7473
+      - 7687:7687
+    environment:
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_import_file_use_neo4j_config=true
+      - NEO4JLABS_PLUGINS=["apoc"]
+    env_file:
+      - ../env/.env
+    volumes:
+      - ../neodata:/data
+      - ../logs:/logs
+  celery_worker:
+    container_name: celery_worker
+    build: ../
+    env_file:
+      - ../env/.env
+    command: celery -A app.config.celery worker --loglevel=info
+    volumes:
+      - ../app:/app/app
+    depends_on:
+      - app
+      - rabbitmq
+
+  rabbitmq:
+    image: rabbitmq
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    env_file:
+      - ../env/.env
+    volumes:
+      - ../rabbitmqdata:/var/lib/rabbitmq
